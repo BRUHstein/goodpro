@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="css.css"></link>
+	<link rel="shortcut icon" href="/picter/ICO.png" type="image/png">
+	<title>LEANux</title>
+</head>
+<body bgcolor="#f5f5f5" >
+   <div class="container1">
+	<a  href="index.html" class="btn">Линух</a>
+	<a  href="index2.html" class="btn">Винда мейби</a>
+
+   </div>
+ <hr>
+ <h1 id="header" style="position: relative;text-align: center;">Пожалуйста не убивайте, я учил</h1>
+ <hr>
+ <br>
+после дисков написать apt-cdrom add
+<br><br>
+Установка на сервера WEB-L и WEB-R
+apt install network-manager nginx vim openssh-server lynx cifs-utils-y
+<br>
+Установка на сервера RTR-L и RTR-R
+apt install network-manager vim firewalld openssh-server libreswan -y
+<br>
+Установка на сервер ISP
+apt install network-manager bind9 vim openssh-server ntp ntpdate -y
+<br><br>
+на isp в сторону RTR-L и RTR-R только ip, в сторону CLI ip днс 127.0.0.1 и demo.wsr в домене
+<br><br>
+везде кроме ISP айпи, днс 192.168.100.200, домен int.demo.wsr
+<br>
+<br><br>
+nano /etc/sysctl.conf   ip_forward...
+<br>
+sysctl –p
+<br><br>
+на RTR-L
+<br>
+nmcli connection modify ISP connection.zone external
+<br>
+nmcli connection modify LEFT connection.zone trusted
+<br>
+firewall-cmd --permanent --zone=external --add-service=gre
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=53:proto=udp/tcp:toaddr=192.168.100.200:toport=53
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=80:proto=tcp:toaddr=192.168.100.100:toport=80
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=443:proto=tcp:toaddr=192.168.100.100:toport=443
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=2222:proto=tcp:toaddr=192.168.100.100:toport=22
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=2244:proto=tcp:toaddr=172.16.100.100:toport=22
+<br>
+firewall-cmd --reload
+
+<br>
+<br>
+На RTR-R
+<br>
+nmcli connection modify ISP connection.zone external
+<br>
+nmcli connection modify RIGHT connection.zone trusted
+<br>
+firewall-cmd --permanent --zone=external --add-service=gre
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=80:proto=tcp:toaddr=172.16.100.100:toport=80
+<br>
+firewall-cmd --permanent --zone=external --add-forward-port=port=443:proto=tcp:toaddr=172.16.100.100:toport=443
+<br>
+firewall-cmd --reload
+
+<br>
+<br>
+GRE на RTR-L local 4.4.4.100 remote 5.5.5.100  ,  ipv4 10.5.5.1/30
+<br>
+dest 172.16.100.0/24   ,  next hop 10.5.5.2
+<br>
+на RTR-R наоборот, но dest 192.168.100.0/24
+<br><br><br>
+создать 2 файла /etc/ipsec.d/gre.conf и /etc/ipsec.d/gre.secrets, для RTR-L и RTR-R только поменять айпи местами (сначало идёт L)
+<br>
+на gre.conf
+<br>
+conn gre
+<br>
+authby=secret
+<br>
+auto=start
+<br>
+type=transport
+<br>
+left=4.4.4.100
+<br>
+right=5.5.5.100
+<br>
+leftprotoport=gre
+<br>
+rightprotoport=gre
+<br>
+<br>
+в gre.secrets
+<br>
+4.4.4.100 5.5.5.100 : PSK "TOOR"
+<br>
+<br>
+Для проверки ipsec status
+<br> 
+<br>
+<br>
+Настройнка днс на isp
+<br>
+Настройка /etc/bind/named.conf.options
+<br>
+<img  style="position: relative;width: 500px; height: 300px; " src="img1.png">
+<br>
+systemctl restart bind9
+<br>
+systemctl status bind9 
+<br>
+<br>
+в /etc/bind/named.conf.default-zones  Зона demo.wsr
+<br>
+ <img  style="position: relative;width: 400px; height: 150px; " src="img2.png">
+<br>
+<br>
+Копируем зону localhost   cp /etc/bind/db.local /etc/bind/demo.wsr
+<br>
+<img  style="position: relative;width: 400px; height: 200px; " src="img3.png">
+<br>
+systemctl restart bind9
+<br>
+systemctl status bind9 
+<br>
+<br>
+<br>
+НАСТРОЙКА NTP НА ISP  находится в файле /etc/ntp.conf
+<br>
+<img  style="position: relative;width: 500px; height: 350px; " src="img4.png">
+<br>
+systemctl restart/status ntp
+<br>
+Для проверки используем команды:
+<br>
+ntpq –pn
+<br>
+ntpq –c sysinfo
+<br>
+<br>
+НАСТРОЙКА NTP НА WEB-L/R, RTR-L/R
+<br>
+/etc/systemd/timesyncd.conf раскоментировать NTP и прописать 192.168.100.200
+<br>
+systemctl restart systemd-timesyncd 
+<br>
+<br>
+<br>
+КОНВЕРТИРУЕМ КЛЮЧИ PFX (при работе сертификата)
+<br><br>
+На WEB-L
+<br>
+openssl pkcs12 –in web.pfx –nokeys –out cert.pem
+<br>
+openssl pkcs12 –in web.pfx –nocerts –out key.pem
+<br>
+openssl rsa –in key.pem –out key.pem
+<br>
+cp *.pem /etc/nginx/
+<br>
+Копируем cert.pem и key.pem на WEB-R
+<br>
+scp *.pem root@172.16.100.100:/etc/nginx/
+<br>
+
+
+ <hr>
+ 
+ <br>
+ <br>
+</body>
+</html>
